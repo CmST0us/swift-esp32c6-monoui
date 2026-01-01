@@ -1,10 +1,18 @@
-# Swift Embedded ESP32C6 OLED Demo
+# Swift Embedded ESP32C6 MonoUI Demo
 
 <p align="center">
   <img src="resource/banner.jpg" alt="Banner">
 </p>
 
-This project demonstrates how to use Swift in an embedded environment with ESP32C6, featuring a rotating 3D cube animation on an OLED display.
+This is an ESP32C6 OLED display application demo project based on **Embedded Swift** and the **MonoUI** framework. The project demonstrates how to build modern user interfaces using Swift in embedded environments.
+
+## Features
+
+- 🚀 **Embedded Swift** - Run Swift code on ESP32C6
+- 🎨 **MonoUI Framework** - Modern UI framework with page routing, animations, and componentization
+- 📺 **OLED Display** - Drive 128x64 OLED screen using U8g2
+- ⌨️ **Serial Keyboard Input** - Interactive control via serial port
+- 🎬 **Smooth Animations** - Page transition and scroll animations
 
 ## Project Structure
 
@@ -14,160 +22,211 @@ This project demonstrates how to use Swift in an embedded environment with ESP32
 ├── main/
 │   ├── CMakeLists.txt         # Component CMake configuration
 │   ├── Package.swift          # Swift package manifest
+│   ├── patch_sections_ld.cmake # Swift GOT/PLT fix script
 │   └── Source/
 │       ├── App/               # Main application code
-│       └── Support/           # Support code and fonts
-└── sdkconfig                  # ESP-IDF configuration
+│       │   ├── App.swift      # Application entry point and page definitions
+│       │   └── ESP32U8g2Driver.swift  # U8g2 driver implementation
+│       └── Support/           # Support code
+│           ├── include/        # C header files
+│           │   ├── support.h  # Swift-C bridging header
+│           │   ├── uart.h     # UART serial interface
+│           │   ├── i2c.h      # I2C interface
+│           │   └── rtos_utils.h  # FreeRTOS utility functions
+│           └── src/           # C source files
+│               ├── uart.c     # UART implementation
+│               ├── i2c.c      # I2C implementation
+│               └── rtos_utils.c  # FreeRTOS utility implementation
+├── partitions.csv              # Custom partition table
+├── sdkconfig                   # ESP-IDF configuration
+└── docs/                        # Documentation directory
+    └── SWIFT_GOT_PLT_FIX.md    # Swift GOT/PLT fix documentation
 ```
 
-## Key Features
+## Features Overview
 
-- Swift embedded programming on ESP32C6
-- OLED display support using U8g2
-- 3D graphics rendering
-- I2C communication
+### UI Interface
 
-## Integration Guide
+- **Home Page (HomePage)**: Displays three scrollable icon cards (Music, Settings, Download)
+- **Detail Page (DetailPage)**: Detail page entered after clicking a card, with slide-in/slide-out animations
 
-### 1. Swift Package Manager Integration
+### Interactive Controls
 
-To integrate Swift Package Manager with CMake in an embedded environment:
+Keyboard input control via serial port (UART):
 
-1. Create a `Package.swift` file in your component directory:
-```swift
-// swift-tools-version: 6.1
-import PackageDescription
+- `a` / `A` - Navigate left (select previous card)
+- `d` / `D` - Navigate right (select next card)
+- `e` / `E` - Enter/Activate (open selected card's detail page)
+- `q` / `Q` - Go back (return from detail page to home page)
 
-let package = Package(
-    name: "App",
-    products: [
-        .library(
-            name: "App", 
-            type: .static, 
-            targets: ["App"]),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/CmST0us/U8g2Kit", branch: "main", traits: ["Embedded"]),
-    ],
-    targets: [
-        .target(
-            name: "App",
-            dependencies: [
-                "Support",
-                .product(name: "U8g2Kit", package: "U8g2Kit"),
-                .product(name: "CU8g2", package: "U8g2Kit")],
-            swiftSettings: [
-                .swiftLanguageMode(.v5),
-                .enableExperimentalFeature("Embedded"),
-            ]),
+### Technical Implementation
 
-        .target(name: "Support",
-            swiftSettings: [
-                .swiftLanguageMode(.v5),
-                .enableExperimentalFeature("Embedded"),
-            ]),
-    ]
-)
-```
-
-2. Configure CMakeLists.txt to build Swift code:
-
-> Thanks to [https://github.com/anders0nmat/swift-embedded-pm](https://github.com/anders0nmat/swift-embedded-pm)
-
-Add custom command to run swift build to make embedded libApp.a
-```cmake
-add_custom_target(swift-archive
-	COMMAND
-		# Remove the archive. Swift does not overwrite this on building but merges them.
-		# If the file with app_main gets renamed, both objectfiles (old and new) will be in the archive, potentially causing problems
-		rm -f ${SWIFT_PRODUCT_ARCHIVE}
-		&&
-		${SWIFT_TOOLCHAIN}/swift package update
-			--package-path ${COMPONENT_DIR}	
-		&&
-		${SWIFT_TOOLCHAIN}/swift build
-			-c release
-			--package-path ${COMPONENT_DIR}
-			
-			--triple ${SWIFT_TARGET}
-			-Xswiftc -target -Xswiftc riscv32-none-none-eabi
-			-Xswiftc -enable-experimental-feature -Xswiftc Embedded
-			-Xswiftc -wmo
-			-Xswiftc -parse-as-library
-			-Xswiftc -Osize
-			-Xswiftc -Xfrontend -Xswiftc -function-sections
-			-Xswiftc -Xfrontend -Xswiftc -enable-single-module-llvm-emission
-			-Xlinker -lgcc
-			-Xlinker -lm 
-
-			-Xswiftc -pch-output-dir -Xswiftc /tmp
-
-			-Xcc ${march_flag} 
-			-Xcc ${mabi_flag} 
-			-Xcc -fno-pic 
-			-Xcc -fno-pie
-			
-			# Get includes for C-std libraries and extra components
-			${SWIFT_INCLUDES_LIST}
-            $$\( echo '$<TARGET_PROPERTY:__idf_main,INCLUDE_DIRECTORIES>' | tr '\;' '\\n' | sed -e 's/\\\(.*\\\)/-Xcc -I\\1/g' \)
-	BYPRODUCTS
-		${SWIFT_PRODUCT_ARCHIVE}
-)
-```
-
-### 2. Swift to C Interoperability
-
-When working with Swift->C->ESP-IDF symbols (e.g., `i2c_driver_install`), you might encounter linking errors. To resolve this:
-
-```
-// Reference to ESP32U8g2Driver.swift
-init() {
-    super.init(u8g2_Setup_ssd1306_i2c_128x64_noname_f, &U8g2Kit.u8g2_cb_r0)
-    // Mask use this, otherwise i2c_driver_install will not found
-    let installHandler = i2c_driver_install
-}
-```
-
-### 3. U8g2 Font Optimization
-
-To reduce binary size when using U8g2 fonts:
-
-1. Extract required fonts to a separate C file:
-```c
-// font.c
-#include "font.h"
-const uint8_t *default_font_5x7 = "...";  // Font data
-```
-
-2. Include only necessary fonts in your build.
-
-### 4. Known Issues
-
-#### SourceKit-LSP Support
-
-Currently, SourceKit-LSP doesn't work properly in the embedded Swift environment. This affects:
-- Code completion
-- Symbol navigation
-- Error reporting
-
-Potential workarounds:
-1. Use a text editor with basic syntax highlighting
-2. Maintain a separate Swift package for development
-3. Use command-line tools for building and debugging
+1. **Routing System**: Uses `Router` to manage page navigation and state
+2. **Animation System**: Uses `@AnimationValue` to implement smooth page transitions and scroll animations
+3. **Time Synchronization**: Uses FreeRTOS tick count to provide a monotonically increasing time source
 
 ## Building and Running
 
-1. Install ESP-IDF and Swift toolchain
-2. Configure the project:
-```bash
-idf.py set-target esp32c6
-idf.py menuconfig
-```
+### Prerequisites
 
-3. Build and flash:
+1. **ESP-IDF** (v5.5+)
+   ```bash
+   # Install ESP-IDF
+   git clone --recursive https://github.com/espressif/esp-idf.git
+   cd esp-idf
+   ./install.sh esp32c6
+   . ./export.sh
+   ```
+
+2. **Swift Toolchain** (with Embedded Swift support)
+   - Requires Swift toolchain that supports `-enable-experimental-feature Embedded`
+   - Recommended: Swift 6.1+
+
+### Configuring the Project
+
+1. Set target chip:
+   ```bash
+   idf.py set-target esp32c6
+   ```
+
+2. Configure project (optional):
+   ```bash
+   idf.py menuconfig
+   ```
+
+   Main configuration items:
+   - Flash size: Configure according to your hardware (default 8MB)
+   - Partition table: Uses custom partition table `partitions.csv`
+   - Optimization level: Configured as `-Osize` to reduce binary size
+
+### Building
+
 ```bash
 idf.py build
-idf.py -p (PORT) flash
+```
+
+### Flashing
+
+```bash
+idf.py -p /dev/ttyUSB0 flash
+```
+
+### Monitoring
+
+```bash
+idf.py -p /dev/ttyUSB0 monitor
+```
+
+## Hardware Connections
+
+### OLED Display (SSD1306 128x64)
+
+- **I2C Interface**
+  - SDA: GPIO (configured in `i2c.c`)
+  - SCL: GPIO (configured in `i2c.c`)
+  - Address: `0x3C`
+
+### Serial Port (for keyboard input)
+
+- **UART_NUM_0** (usually USB Serial/JTAG)
+  - Baud rate: 115200
+  - Used for receiving keyboard input
+
+## Known Issues and Solutions
+
+### Swift GOT/PLT Linking Error
+
+**Issue**: Linker error: `discarded output section: '.got.plt'`
+
+**Cause**: ESP-IDF's linker script discards the `.got.plt` section, but the Swift compiler requires these sections.
+
+**Solution**: The project includes an automatic fix script `patch_sections_ld.cmake` that automatically patches the linker script during build.
+
+For detailed information, see: [docs/SWIFT_GOT_PLT_FIX.md](docs/SWIFT_GOT_PLT_FIX.md)
+
+### Unicode Normalization Issue
+
+**Issue**: Linker error when using `Character("x").asciiValue!` (`undefined reference to '_swift_stdlib_getNormData'`)
+
+**Cause**: Embedded Swift lacks complete Unicode normalization runtime functions.
+
+**Solution**: Use direct ASCII constant values, for example:
+```swift
+let key_q: Int32 = 113  // ASCII value of 'q'
+```
+
+### Binary Size Optimization
+
+The project has applied multiple optimization measures:
+
+- Compiler optimization: `-Osize` (size optimization)
+- Linker optimization: `--gc-sections`, `--strip-debug`, `--strip-all`
+- Disabled unused ESP-IDF components (WiFi, BT, MQTT, etc.)
+- Log level set to ERROR
+
+## Dependencies
+
+### Swift Packages
+
+- **U8g2Kit** - Swift wrapper for U8g2 graphics library
+  - Repository: https://github.com/CmST0us/U8g2Kit
+  - Branch: `main`
+  
+- **MonoUI** - Embedded UI framework
+  - Local path: `/home/eki/Project/swift/MonoUI`
+  - Features: Page routing, animations, component system
+
+### ESP-IDF Components
+
+- `driver` - I2C, UART drivers
+- `freertos` - FreeRTOS real-time operating system
+- `esp_system` - System core functionality
+
+## Development Guide
+
+### Adding a New Page
+
+1. Create a class inheriting from `Page`:
+```swift
+class MyPage: Page {
+    override func draw(u8g2: UnsafeMutablePointer<u8g2_t>?, origin: Point) {
+        // Drawing logic
+    }
+    
+    override func handleInput(key: Int32) {
+        // Input handling
+    }
+}
+```
+
+2. Navigate in router:
+```swift
+if let app = Application.shared as? ESP32C6App {
+    app.router.push(MyPage())
+}
+```
+
+### Adding Animations
+
+Use the `@AnimationValue` property wrapper:
+```swift
+@AnimationValue var offsetX: Double = 0
+
+override func animateIn() {
+    offsetX = 100  // Automatically animates to target value
+}
+```
+
+### Serial Input Handling
+
+Handle input in the page's `handleInput(key:)` method:
+```swift
+override func handleInput(key: Int32) {
+    let key_e: Int32 = 101  // 'e'
+    if key == key_e {
+        // Handle input
+    }
+}
 ```
 
 ## Contributing
@@ -177,3 +236,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+
+## Related Resources
+
+- [ESP-IDF Documentation](https://docs.espressif.com/projects/esp-idf/en/latest/)
+- [Swift for Embedded Systems](https://www.swift.org/blog/embedded-swift/)
+- [U8g2 Graphics Library](https://github.com/olikraus/u8g2)
+- [MonoUI Framework](https://github.com/CmST0us/MonoUI)
