@@ -1,37 +1,39 @@
 #include "uart.h"
-#include "driver/uart.h"
-#include "driver/gpio.h"
+#include "driver/usb_serial_jtag.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define UART_NUM UART_NUM_0
-#define BUF_SIZE 1024
+#define BUF_SIZE 256
+
+static bool initialized = false;
+static uint8_t peek_buffer = 0;
+static bool has_peek_data = false;
 
 void uart_init(void) {
-    // 配置 UART 参数
-    uart_config_t uart_config = {
-        .baud_rate = 115200,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .source_clk = UART_SCLK_DEFAULT,
+    if (initialized) return;
+
+    // 配置 USB Serial/JTAG
+    usb_serial_jtag_driver_config_t usb_serial_config = {
+        .tx_buffer_size = BUF_SIZE,
+        .rx_buffer_size = BUF_SIZE,
     };
-    
-    // 安装 UART 驱动
-    uart_driver_install(UART_NUM, BUF_SIZE * 2, 0, 0, NULL, 0);
-    
-    // 配置 UART 参数
-    uart_param_config(UART_NUM, &uart_config);
-    
-    // 设置 UART 引脚（ESP32-C6 默认使用 USB Serial/JTAG，通常不需要设置引脚）
-    // 如果需要使用其他 UART，可以在这里设置：
-    // uart_set_pin(UART_NUM, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+    // 安装 USB Serial/JTAG 驱动
+    usb_serial_jtag_driver_install(&usb_serial_config);
+
+    initialized = true;
 }
 
 int32_t uart_read_char(void) {
+    // 先检查是否有预读的数据
+    if (has_peek_data) {
+        has_peek_data = false;
+        return (int32_t)peek_buffer;
+    }
+
     uint8_t data = 0;
-    int len = uart_read_bytes(UART_NUM, &data, 1, 0); // 非阻塞读取
+    // 非阻塞读取 (timeout = 0)
+    int len = usb_serial_jtag_read_bytes(&data, 1, 0);
     if (len > 0) {
         return (int32_t)data;
     }
@@ -39,8 +41,16 @@ int32_t uart_read_char(void) {
 }
 
 bool uart_has_data(void) {
-    size_t available = 0;
-    uart_get_buffered_data_len(UART_NUM, &available);
-    return available > 0;
-}
+    // 如果已经有预读数据，直接返回 true
+    if (has_peek_data) {
+        return true;
+    }
 
+    // 尝试读取一个字节
+    int len = usb_serial_jtag_read_bytes(&peek_buffer, 1, 0);
+    if (len > 0) {
+        has_peek_data = true;
+        return true;
+    }
+    return false;
+}

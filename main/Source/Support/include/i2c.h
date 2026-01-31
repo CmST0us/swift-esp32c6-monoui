@@ -6,13 +6,12 @@
 #include <stddef.h>
 
 // I2C引脚定义
-#define I2C_SCL_PIN     23
-#define I2C_SDA_PIN     22
+#define I2C_SCL_PIN     4
+#define I2C_SDA_PIN     5
 
 // I2C配置
-#define I2C_MASTER_FREQ_HZ    400000  // 400KHz
-#define I2C_MASTER_NUM        0       // I2C master number
-#define I2C_MASTER_TIMEOUT_MS 1000    // 超时时间
+#define I2C_MASTER_FREQ_HZ    1000000  // 1MHz (Fast Mode Plus)
+#define I2C_MASTER_TIMEOUT_MS 1000     // 超时时间
 
 // 函数声明
 bool i2c_init(void);

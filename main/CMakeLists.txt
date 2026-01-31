@@ -221,10 +221,10 @@ target_link_libraries(__idf_main gcc)
 # Add math library if needed
 target_link_libraries(__idf_main m)
 
-# 强制链接器引入 I2C 驱动符号，避免找不到符号
-target_link_libraries(__idf_main "-Wl,-u,i2c_driver_install")
-target_link_libraries(__idf_main "-Wl,-u,i2c_param_config")
-target_link_libraries(__idf_main "-Wl,-u,i2c_master_write_to_device")
+# 强制链接器引入 I2C 驱动符号（新 API: driver/i2c_master.h）
+target_link_libraries(__idf_main "-Wl,-u,i2c_new_master_bus")
+target_link_libraries(__idf_main "-Wl,-u,i2c_master_bus_add_device")
+target_link_libraries(__idf_main "-Wl,-u,i2c_master_transmit")
 
 # 强制链接器引入 SPI 驱动符号，避免找不到符号
 target_link_libraries(__idf_main "-Wl,-u,spi_bus_initialize")
