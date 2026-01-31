@@ -1,6 +1,15 @@
 {
-  "originHash" : "322bd491e0156036a1ac0994218463fc14ba26e7a1740b84717987ee34c65882",
+  "originHash" : "ec8163604a26f87511c8fb2238308517c87cc3b443e50215570eed69dbb15c51",
   "pins" : [
+    {
+      "identity" : "monoui",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CmST0us/MonoUI.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "041779ba6611a6aff9269fafb50774149a330d8e"
+      }
+    },
     {
       "identity" : "swiftsdl2",
       "kind" : "remoteSourceControl",

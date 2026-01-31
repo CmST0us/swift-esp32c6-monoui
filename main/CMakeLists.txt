@@ -100,7 +100,7 @@ add_custom_target(swift-archive
 		${SWIFT_TOOLCHAIN}/swift build
 			-c release
 			--package-path ${COMPONENT_DIR}
-			
+
 			--triple ${SWIFT_TARGET}
 			--traits Embedded
 			-Xswiftc -target -Xswiftc riscv32-none-none-eabi
@@ -225,6 +225,13 @@ target_link_libraries(__idf_main m)
 target_link_libraries(__idf_main "-Wl,-u,i2c_driver_install")
 target_link_libraries(__idf_main "-Wl,-u,i2c_param_config")
 target_link_libraries(__idf_main "-Wl,-u,i2c_master_write_to_device")
+
+# 强制链接器引入 SPI 驱动符号，避免找不到符号
+target_link_libraries(__idf_main "-Wl,-u,spi_bus_initialize")
+target_link_libraries(__idf_main "-Wl,-u,spi_bus_add_device")
+target_link_libraries(__idf_main "-Wl,-u,spi_device_polling_transmit")
+target_link_libraries(__idf_main "-Wl,-u,gpio_config")
+target_link_libraries(__idf_main "-Wl,-u,gpio_set_level")
 
 # Add swift_package_app_main to __idf_main
 add_dependencies(__idf_main swift_package_app_main)

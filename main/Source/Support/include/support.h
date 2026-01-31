@@ -21,3 +21,4 @@
 #include "rtos_utils.h"
 #include "font.h"
 #include "uart.h"
+#include "spi.h"

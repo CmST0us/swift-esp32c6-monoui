@@ -21,7 +21,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/CmST0us/U8g2Kit", branch: "main", traits: ["Embedded"]),
-        .package(path: "/home/eki/Project/swift/MonoUI", traits: ["Embedded"]),
+        .package(url: "https://github.com/CmST0us/MonoUI.git", branch: "main", traits: ["Embedded"]),
     ],
     targets: [
 		.target(

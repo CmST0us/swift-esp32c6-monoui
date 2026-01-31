@@ -2,5 +2,6 @@ module Support [system] {
     header "support.h"
     header "i2c.h"
     header "uart.h"
+    header "spi.h"
     export *
 }

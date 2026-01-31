@@ -4,8 +4,6 @@ import MonoUI
 
 class ESP32C6App: Application {
 
-    var router: Router = Router()
-  
     override init(context: Context) {
         super.init(context: context)
     }
@@ -264,7 +262,7 @@ class HomePage: Page {
 
 @_cdecl("app_main")
 func main() {
-    let context = Context(driver: ESP32C6U8g2Driver())
+    let context = Context(driver: ESP32C6U8g2Driver(), screenSize: Size(width: 64, height: 48))
     let app = ESP32C6App(context: context)
     app.run()
 }
